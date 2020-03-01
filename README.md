@@ -1,6 +1,6 @@
 # ModelPruningLibrary
 This is a library for model pruning and sparse fully-conneted layer implementations. It can be used for federated learning as described in the following paper:
-Y. Jiang, S. Wang, B. J. Ko, W.-H. Lee, L. Tassiulas, "[Model pruning enables efficient federated learning on edge devices](https://arxiv.org/abs/1909.12326)," arXiv preprint arXiv:1909.12326 (2019).
+- Y. Jiang, S. Wang, B. J. Ko, W.-H. Lee, L. Tassiulas, "[Model pruning enables efficient federated learning on edge devices](https://arxiv.org/abs/1909.12326)," arXiv preprint arXiv:1909.12326 (2019).
 
 When using this code for scientific publications, please kindly cite the above paper.
 
