@@ -1,5 +1,10 @@
 # ModelPruningLibrary
-This is a library for model pruning and sparse fully-conneted layer implementations. It consists of the following components:
+This is a library for model pruning and sparse fully-conneted layer implementations. It can be used for federated learning as described in the following paper:
+Y. Jiang, S. Wang, B. J. Ko, W.-H. Lee, L. Tassiulas, "[Model pruning enables efficient federated learning on edge devices](https://arxiv.org/abs/1909.12326)," arXiv preprint arXiv:1909.12326 (2019).
+
+When using this code for scientific publications, please kindly cite the above paper.
+
+The library consists of the following components:
 * **bases**: the core component. The nn subfolder contains the implementation of **fc_layer**, **masked_conv2d**, **sequential** and **models**
     * *fc_layer*: implements linear, fully-connected layers with an optional activation function. There are two types of fc layers: *DenseFCLayer* and *SparseFCLayer* (both of which can convert to each other). *DenseFCLayer* uses dense matrix multiplication and applies a mask to the weight while *SparseFCLayer* uses sparse matrices for weights. Pruning methods including random pruning, initialization-based pruning, pruning by rank/threshold etc. are implemented.
     * *masked_conv2d* implements *MaskedConv2d*, which applies mask to the kernel of a convolutional layer. It can be pruned and be converted to the PyTorch Conv2d class.
