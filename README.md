@@ -14,7 +14,7 @@ The library consists of the following components:
 * **utils**: necessary tools for experiments.
 * **datasets.loader**: downloads and loads a specific dataset. It provides 2 transformations: one-hot and flatten. A *torch.utils.data.DataLoader* class must be converted to a *DataIterator* class to be used (see the second example). Note that on a Windows machine, *n_workers* argument must be set to 0 to avoid bugs.
 
-Next, we will present examples, and then the server code and client code.
+Next, we will present examples, and then the server code and client code for federated learning setting.
 
 ### EXAMPLES
 
