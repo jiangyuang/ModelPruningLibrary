@@ -1,4 +1,14 @@
 # ModelPruningLibrary
+## Plan for New Version
+We plan to launch a new version of ModelPruningLibrary. In the new version, we will introduce the following:
+1. An easy-to-use framework for model pruning, including various types of layers (CNN, FC, etc.) and models. We will introduce functions such as automatically finding the parateterized (prunbale) layers, pruning by different criterions, and more.
+2. An automatic `to_sparse` method for models. This will allow the conversion from sparse model using masks to genuine sparse models using sparse matrices.
+3. Implementation of popular pruning methods.
+4. Implementation of popular datasets that are not currently supported by PyTorch.
+
+Suggestions/comments are welcome!
+
+## Description
 This is a library for model pruning and sparse fully-conneted layer implementations. It can be used for federated learning as described in the following paper:
 - Y. Jiang, S. Wang, B. J. Ko, W.-H. Lee, L. Tassiulas, "[Model pruning enables efficient federated learning on edge devices](https://arxiv.org/abs/1909.12326)," arXiv preprint arXiv:1909.12326 (2019).
 
