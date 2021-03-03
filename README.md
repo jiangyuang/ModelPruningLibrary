@@ -4,6 +4,7 @@ We plan to further complete ModelPruningLibrary with the following:
 1. c++ implementation conv2d with groups > 1 and depthwise conv2d, as well as missing models in `torchvision.models`.
 2. more optimizers as in `torch.optim`.
 3. well-known pruning algorithms such as SNIP [[1]](#1).
+4. we also plan to implement tools for federated learning (e.g. well-known datasets for FL).
 
 Suggestions/comments are welcome!
 
