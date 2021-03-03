@@ -1,123 +1,153 @@
-# ModelPruningLibrary
-## Plan for New Version
-We plan to launch a new version of ModelPruningLibrary. In the new version, we will introduce the following:
-1. An easy-to-use framework for model pruning, including various types of layers (CNN, FC, etc.) and models. We will introduce functions such as automatically finding the parateterized (prunbale) layers, pruning by different criterions, and more.
-2. An automatic `to_sparse` method for models. This will allow the conversion from sparse model using masks to genuine sparse models using sparse matrices.
-3. Implementation of popular pruning methods.
-4. Implementation of popular datasets that are not currently supported by PyTorch.
+# ModelPruningLibrary (Updated 3/3/2021)
+## Plan for the Next Version
+We plan to further complete ModelPruningLibrary with the following:
+1. c++ implementation conv2d with groups > 1 and depthwise conv2d, as well as missing models in `torchvision.models`.
+2. more optimizers as in `torch.optim`.
+3. well-known pruning algorithms such as SNIP [[1]](#1).
 
 Suggestions/comments are welcome!
 
 ## Description
-This is a library for model pruning and sparse fully-conneted layer implementations. It can be used for federated learning as described in the following paper:
-- Y. Jiang, S. Wang, B. J. Ko, W.-H. Lee, L. Tassiulas, "[Model pruning enables efficient federated learning on edge devices](https://arxiv.org/abs/1909.12326)," arXiv preprint arXiv:1909.12326 (2019).
+This is a PyTorch-based library that implements
+1. model pruning: various magnitude-based pruning algorithms (by percentage, random pruning, etc.);
+2. conv2d module with **sparse kernels** as well as fully-connected module implementations;
+3. SGD optimizer designed for our sparse modules;
+4. two types of save-load functionalities for sparse tensors, determined automatically according to tensor's density (fraction of non-zero entries). If density < 1/32, we save value-index pairs, and otherwise, we use bitmap to save sparse tensors.
+
+It is originally from the following paper:
+- Jiang, Y., Wang, S., Ko, B. J., Lee, W. H., & Tassiulas, L. (2019). [Model pruning enables efficient federated learning on edge devices](https://arxiv.org/pdf/1909.12326.pdf). arXiv preprint arXiv:1909.12326.
 
 When using this code for scientific publications, please kindly cite the above paper.
 
 The library consists of the following components:
-* **bases**: the core component. The nn subfolder contains the implementation of **fc_layer**, **masked_conv2d**, **sequential** and **models**
-    * *fc_layer*: implements linear, fully-connected layers with an optional activation function. There are two types of fc layers: *DenseFCLayer* and *SparseFCLayer* (both of which can convert to each other). *DenseFCLayer* uses dense matrix multiplication and applies a mask to the weight while *SparseFCLayer* uses sparse matrices for weights. Pruning methods including random pruning, initialization-based pruning, pruning by rank/threshold etc. are implemented.
-    * *masked_conv2d* implements *MaskedConv2d*, which applies mask to the kernel of a convolutional layer. It can be pruned and be converted to the PyTorch Conv2d class.
-    * *sequential* implements concatenation layer for both *DenseFCLayer* and *SparseFCLayer*.
-    * *models* implements the base model and models inherited from base model. The base model has pruning methods, including pruning (or retaining) by threshold, by percent, by rank, by Taylor expansion or randomly.
-* **configs**: configs for datasets (image dimensions, number of training data etc.), experiments (number of clients, batch size etc.), and network (IP address and port). The default server is local (127.0.0.1).
-* **utils**: necessary tools for experiments.
-* **datasets.loader**: downloads and loads a specific dataset. It provides 2 transformations: one-hot and flatten. A *torch.utils.data.DataLoader* class must be converted to a *DataIterator* class to be used (see the second example). Note that on a Windows machine, *n_workers* argument must be set to 0 to avoid bugs.
+* **setup.py**: installs the c++ extension and `mpl` (model pruning library) module
+* **extension**: the `extension.cpp` c++ file extends the current PyTorch implementation with **sparse kernels** (the installed module is called `sparse_conv2d`). However, please note that we only extend PyTorch's slow, cpu version of conv2d forward/backward with no groups and dilation = 1 (see PyTorch's c++ code [here](https://github.com/pytorch/pytorch/blob/master/aten/src/ATen/native/ConvolutionMM2d.cpp)). In other words, we do not use acceleration packages such as MKL (which are not available on Raspberry Pis on which our paper experimented). Do not compare the speed of our implementation with the acceleration packages. 
+* **autograd**: the `AddmmFunction` and `SparseConv2dFunction` functions provide the forward and backward functions to our customized modules.
+* **models**: this is similar to `torchvision`'s implementations ([link](https://github.com/pytorch/vision/tree/master/torchvision/models)). Note that we do not implement mnasnet, mobilenet and shufflenetv2 since they have groups > 1 in the models. We also implement popular models such as models in [leaf](https://github.com/TalwalkarLab/leaf/tree/master/models).
+* **nn**: `conv2d.py` and `linear.py` implement the prunable modules and their `to_sparse` functionalities.
+* **optim**: implements a compatible version of SGD optimizer.
 
-Next, we will present examples, and then the server code and client code for federated learning setting.
+Our code has been validated on Ubuntu 20.04. Contact me if you encounter any issues!
 
-### EXAMPLES
+## Examples
 
-1. Setup library
-
+### Setup Library:
    ```bash
    sudo python3 setup.py install
    ```
 
    
 
-2. Importing and using model
+### Importing and Using Model
+```python3
+from mpl.models import conv2
 
-```python
-from bases.nn.models import MNISTModel
-model = MNISTModel(lr=0.1)
+model = conv2()
+print(model)
 ```
 
-3. Using (MNIST) data:
-
-```python
-from datasets.loader import get_data_loader
-from utils.data_iterator import DataIterator
-
-train_loader, test_loader = get_data_loader(EXP_NAME, train_batch_size=MNIST.N_TRAIN, test_batch_size=MNIST.N_TEST,
-                                            shuffle=False, flatten=True, one_hot=True, n_workers=32)
-train_iter = DataIterator(data_loader=train_loader, batch_size=CLIENT_BATCH_SIZE) # Must use DataIterator
-test_iter = DataIterator(data_loader=test_loader, batch_size=200)
+output:
 ```
-4. Use DataIterator:
-
-```python
-x, y = train_iter.get_next_batch() # fetch minibatches (will start over if reaches end)
-for x, y in train_iter:
-  do_something(x, y) # or you can iterate this way (one pass)
-
-```
-5. Model pruning:
-
-```python
-model.prune_by_pct("classifier", [0.1, 0.1, 0.1]) # The first argument must be either "features" or "classifier". The second argument is pruning rate (layer wise). Here the model's classifier is pruned by magnitude by 10%, 10%, 10%, layerwise
-model.random_prune_by_pct("classifier", [0.2, 0.3, 0.4]) # Same as above, but here pruning is random, and 20%, 30% and 40% of the parameters are pruned layerwise
-```
-6. Dense to sparse conversion:
-
-```python
-model = model.to_sparse()
-```
-7. Model training:
-
-```python
-for x, y in train_iter:
-    model.complete_step(x, y) # including zeroing grad, compute loss, loss.backward(), and applying grad
+Conv2(
+  (features): Sequential(
+    (0): DenseConv2d(1, 32, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2))
+    (1): ReLU(inplace=True)
+    (2): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (3): DenseConv2d(32, 64, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2))
+    (4): ReLU(inplace=True)
+    (5): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+  )
+  (classifier): Sequential(
+    (0): DenseLinear(in_features=3136, out_features=2048, bias=True)
+    (1): ReLU(inplace=True)
+    (2): DenseLinear(in_features=2048, out_features=62, bias=True)
+  )
+)
 ```
 
-8. Evaluate model:
+### Model Pruning:
+```python3
+import mpl.models
 
-```python
-loss, acc = model.evaluate(test_iter) # will return both loss and accuracy
+model = mpl.models.conv2()
+print("Before pruning:")
+model.calc_num_prunable_params(display=True)
+
+print("After pruning:")
+model.prune_by_pct([0.1, 0, None, 0.9])
+model.calc_num_prunable_params(display=True)
+```
+output:
+```
+Before pruning:
+Layer name: features.0. remaining/all: 832/832 = 1.0
+Layer name: features.3. remaining/all: 51264/51264 = 1.0
+Layer name: classifier.0. remaining/all: 6424576/6424576 = 1.0
+Layer name: classifier.2. remaining/all: 127038/127038 = 1.0
+Total: remaining/all: 6603710/6603710 = 1.0
+After pruning:
+Layer name: features.0. remaining/all: 752/832 = 0.9038461538461539
+Layer name: features.3. remaining/all: 51264/51264 = 1.0
+Layer name: classifier.0. remaining/all: 6424576/6424576 = 1.0
+Layer name: classifier.2. remaining/all: 12760/127038 = 0.10044238731718069
+Total: remaining/all: 6489352/6603710 = 0.9826827646883343
+```
+### Dense to Sparse Conversion:
+```python3
+from mpl.models import conv2
+
+model = conv2()
+print(model.to_sparse())
+```
+output:
+```
+Conv2(
+  (features): Sequential(
+    (0): SparseConv2d(1, 32, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2), bias=True)
+    (1): ReLU(inplace=True)
+    (2): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (3): SparseConv2d(32, 64, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2), bias=True)
+    (4): ReLU(inplace=True)
+    (5): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+  )
+  (classifier): Sequential(
+    (0): SparseLinear(in_features=3136, out_features=2048, bias=True)
+    (1): ReLU(inplace=True)
+    (2): SparseLinear(in_features=2048, out_features=62, bias=True)
+  )
+)
+```
+Note that `DenseConv2d` and `DenseLinear` layers are converted to `SparseConv2d` and `SparseLinear` layers, respectively.
+
+### SGD Training with a Sparse Model:
+```python3
+from mpl.models import conv2
+from mpl.optim import SGD
+import torch
+
+inp = torch.rand(size=(10, 1, 28, 28))
+model = conv2().to_sparse()
+optimizer = SGD(model.parameters(), lr=0.01)
+optimizer.zero_grad()
+model(inp).sum().backward()
+optimizer.step()
 ```
 
-### Server Procedure
+### Save/Load a Tensor:
+```python3
+from mpl.utils.save_load import save, load
+import torch
 
-* Read arguments from command line and setup configuration.
-  * -t: pruning type, 0 (default) for no pruning, 1 for initialization-based pruning, and 2 for random pruning.
-  * -l: when pruning type is 1 or 2, thie argument must be specified. It is the *level* of pruning (e.g. if pruning rate is [0.1, 0.2, 0.3], at level l there are [1 - 0.1^l, 1 - 0.2^l, 1 - 0.3^l]) of the params left.
-  * -s: the seed for random numbers.
-* Initializes server and wait for connections.
-* When the server receives connections from all clients, it sends init message, including the initial model, local updates, batch size, etc., to all clients.
-* Server aggregates params and periodically evaluate model. It terminates the training when the max iteration or time is reached.
+torch.manual_seed(0)
+x = torch.randn(size=(1000, 1000))
+mask = torch.rand_like(x) <= 0.5
+x = (x * mask).to_sparse()
+save(x, "sparse_x.pt")
 
-### Client Procedure
-
-* Connect to server and receive init message from server
-* Update the model multiple times (number specified by the local updates param). Each time the gradients are applied to the params applies ). Then, upload the model to server.
-* Receives the aggregated model from server, repeat util the server sends *terminate* signal.
-
-### Sample Terminal Commands for Server/Client Experiment
-
-1. No pruning
-
-```bash
-# Server terminal command (no pruning)
-python3 experiments/MNIST/server.py
-# On each client terminal
-python3 experiments/MNIST/client.py
+x_loaded = load("sparse_x.pt")
 ```
+Using our implementation, the size of `sparse_x.pt` file is 2.1 MB, while the default `torch.save` results in a file size of 10 MB (4.8x).
 
-2. Initialization-based pruning, level 10
-
-```bash
-# Server terminal command (initialization-based pruning, level 10)
-python3 experiments/MNIST/server.py -t 1 -l 10
-# On each Client terminal
-python3 experiments/MNIST/client.py
-```
+## References
+<a id="1">[1]</a> 
+Lee, Namhoon, Thalaiyasingam Ajanthan, and Philip HS Torr. "Snip: Single-shot network pruning based on connection sensitivity." arXiv preprint arXiv:1810.02340 (2018).
