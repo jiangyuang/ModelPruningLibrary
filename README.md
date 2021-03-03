@@ -32,9 +32,9 @@ Our code has been validated on Ubuntu 20.04. Contact me if you encounter any iss
 ## Examples
 
 ### Setup Library:
-   ```bash
-   sudo python3 setup.py install
-   ```
+```shell
+sudo python3 setup.py install
+```
 
    
 
