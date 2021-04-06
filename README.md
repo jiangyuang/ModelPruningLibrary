@@ -16,7 +16,7 @@ This is a PyTorch-based library that implements
 4. two types of save-load functionalities for sparse tensors, determined automatically according to tensor's density (fraction of non-zero entries). If density < 1/32, we save value-index pairs, and otherwise, we use bitmap to save sparse tensors.
 
 It is originally from the following paper:
-- Jiang, Y., Wang, S., Ko, B. J., Lee, W. H., & Tassiulas, L. (2019). [Model pruning enables efficient federated learning on edge devices](https://arxiv.org/pdf/1909.12326.pdf). arXiv preprint arXiv:1909.12326.
+- Jiang, Y., Wang, S., Valls, V., Ko, B. J., Lee, W. H., Leung, K. K. & Tassiulas, L. (2019). [Model pruning enables efficient federated learning on edge devices](https://arxiv.org/pdf/1909.12326.pdf). arXiv preprint arXiv:1909.12326.
 
 When using this code for scientific publications, please kindly cite the above paper.
 
